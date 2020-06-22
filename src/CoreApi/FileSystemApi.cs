@@ -289,11 +289,34 @@ namespace Ipfs.Engine.CoreApi
         {
             var cid = await ipfs.ResolveIpfsPathToCidAsync(path, cancel).ConfigureAwait(false);
             var ms = new MemoryStream();
-            using (var tarStream = new TarOutputStream(ms, 1))
-            using (var archive = TarArchive.CreateOutputTarArchive(tarStream))
+            if (compress)
             {
-                archive.IsStreamOwner = false;
-                await AddTarNodeAsync(cid, cid.Encode(), tarStream, cancel).ConfigureAwait(false);
+                using (var tarStream = new TarOutputStream(ms, 1))
+                using (var archive = TarArchive.CreateOutputTarArchive(tarStream))
+                {
+                    archive.IsStreamOwner = false;
+                    await AddTarNodeAsync(cid, cid.Encode(), tarStream, cancel).ConfigureAwait(false);
+                }
+            }
+            else
+            {
+                var block = await ipfs.Block.GetAsync(cid, cancel).ConfigureAwait(false);
+                var dm = new DataMessage { Type = DataType.Raw };
+                DagNode dag = null;
+
+                if (cid.ContentType == "dag-pb")
+                {
+                    dag = new DagNode(block.DataStream);
+                    dm = Serializer.Deserialize<DataMessage>(dag.DataStream);
+                }
+                if (dm.Type != DataType.Directory)
+                {
+                    await AddNodeAsync(cid, ms, cancel).ConfigureAwait(false);
+                }
+                else
+                {
+                    throw new ArgumentException("Can't put a folder in a stream. Consider using compressing");
+                }
             }
             ms.Position = 0;
             return ms;
@@ -351,6 +374,24 @@ namespace Ipfs.Engine.CoreApi
             }
         }
 
+        async Task AddNodeAsync(Cid cid, MemoryStream ms, CancellationToken cancel)
+        {
+            var block = await ipfs.Block.GetAsync(cid, cancel).ConfigureAwait(false);
+            var dm = new DataMessage { Type = DataType.Raw };
+            DagNode dag = null;
+
+            if (cid.ContentType == "dag-pb")
+            {
+                dag = new DagNode(block.DataStream);
+                dm = Serializer.Deserialize<DataMessage>(dag.DataStream);
+            }
+
+            if (dm.Type != DataType.Directory)
+            {
+                var content = await ReadFileAsync(cid, cancel).ConfigureAwait(false);
+                await content.CopyToAsync(ms);
+            }
+        }
 
         IBlockApi GetBlockService(AddFileOptions options)
         {
