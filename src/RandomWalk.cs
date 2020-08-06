@@ -40,7 +40,7 @@ namespace Ipfs.Engine
         /// <summary>
         ///   The maximum <see cref="Delay"/>.
         /// </summary>
-        public TimeSpan DelayMax = TimeSpan.FromMinutes(9);
+        public TimeSpan DelayMax = TimeSpan.FromMinutes(5);
 
         /// <summary>
         ///   Start a background process that will run a random

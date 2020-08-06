@@ -62,6 +62,27 @@ namespace Ipfs.Engine
 
         /// <summary>
         ///   Creates a new instance of the <see cref="IpfsEngine"/> class
+        ///   with the specified repository path.
+        /// </summary>
+        /// <param name="path">
+        ///   The path of the Repository.
+        /// </param>
+        public IpfsEngine(string path)
+        {
+            var s = Environment.GetEnvironmentVariable("IPFS_PASS");
+            if (s == null)
+                throw new Exception("The IPFS_PASS environement variable is missing.");
+
+            passphrase = new SecureString();
+            foreach (var c in s)
+            {
+                this.passphrase.AppendChar(c);
+            }
+            Init(path);
+        }
+
+        /// <summary>
+        ///   Creates a new instance of the <see cref="IpfsEngine"/> class
         ///   with the specified passphrase.
         /// </summary>
         /// <param name="passphrase">
@@ -83,6 +104,30 @@ namespace Ipfs.Engine
 
         /// <summary>
         ///   Creates a new instance of the <see cref="IpfsEngine"/> class
+        ///   with the specified passphrase and repository path.
+        /// </summary>
+        /// <param name="passphrase">
+        ///   The password used to access the keychain.
+        /// </param>
+        /// <param name="path">
+        ///   The path of the Repository.
+        /// </param>
+        /// <remarks>
+        ///   A <b>SecureString</b> copy of the passphrase is made so that the array can be 
+        ///   zeroed out after the call.
+        /// </remarks>
+        public IpfsEngine(char[] passphrase, string path)
+        {
+            this.passphrase = new SecureString();
+            foreach (var c in passphrase)
+            {
+                this.passphrase.AppendChar(c);
+            }
+            Init(path);
+        }
+
+        /// <summary>
+        ///   Creates a new instance of the <see cref="IpfsEngine"/> class
         ///   with the specified passphrase.
         /// </summary>
         /// <param name="passphrase">
@@ -97,9 +142,33 @@ namespace Ipfs.Engine
             Init();
         }
 
-        void Init()
-        { 
+        /// <summary>
+        ///   Creates a new instance of the <see cref="IpfsEngine"/> class
+        ///   with the specified passphrase and repository path.
+        /// </summary>
+        /// <param name="passphrase">
+        ///   The password used to access the keychain.
+        /// </param>
+        /// <param name="path">
+        ///   The path of the Repository.
+        /// </param>
+        /// <remarks>
+        ///  A copy of the <paramref name="passphrase"/> is made.
+        /// </remarks>
+        public IpfsEngine(SecureString passphrase, string path)
+        {
+            this.passphrase = passphrase.Copy();
+            Init(path);
+        }
+
+        void Init(string repopath = null)
+        {
             // Init the core api inteface.
+            log.Debug($"Rebuilding RepositoryOptions with parameter path = {repopath}");
+            if (repopath != null)
+                Options.Repository = new RepositoryOptions(repopath);
+            log.Debug($"RepositoryOptions rebuilded and now equal to {Options.Repository.Folder}");
+
             Bitswap = new BitswapApi(this);
             Block = new BlockApi(this);
             BlockRepository = new BlockRepositoryApi(this);
@@ -378,8 +447,10 @@ namespace Ipfs.Engine
             }
 
             // Repository must be at the correct version.
+            log.Debug("Starting migration of local engine");
             await MigrationManager.MirgrateToVersionAsync(MigrationManager.LatestVersion)
                 .ConfigureAwait(false);
+            log.Debug("Migration completed");
 
             var localPeer = await LocalPeer.ConfigureAwait(false);
             log.Debug("starting " + localPeer.Id);

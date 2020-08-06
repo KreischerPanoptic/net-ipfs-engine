@@ -34,6 +34,19 @@ namespace Ipfs.Engine
         }
 
         /// <summary>
+        ///   Creates a new instance of the <see cref="RepositoryOptions"/> class
+        ///   with the custom repository path.
+        /// </summary>
+        /// <param name="path">
+        ///   The path to repository.
+        /// </param>
+        public RepositoryOptions(string path)
+        {
+            Folder = path;
+            Environment.SetEnvironmentVariable("IPFS_PATH", path);
+        }
+
+        /// <summary>
         ///   The directory of the repository.
         /// </summary>
         /// <value>

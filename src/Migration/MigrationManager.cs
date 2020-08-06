@@ -26,13 +26,14 @@ namespace Ipfs.Engine.Migration
         public MigrationManager(IpfsEngine ipfs)
         {
             this.ipfs = ipfs;
-
             Migrations = typeof(MigrationManager).Assembly
                 .GetTypes()
                 .Where(x => typeof(IMigration).IsAssignableFrom(x) && !x.IsInterface && !x.IsAbstract)
                 .Select(x => (IMigration)Activator.CreateInstance(x))
                 .OrderBy(x => x.Version)
                 .ToList();
+            log.Debug("Checking and assigning default Migration1 to avoid exceptions if none other migrations found");
+            Migrations = Migrations.DefaultIfEmpty(new MigrateTo1()).ToList();
         }
 
         /// <summary>
